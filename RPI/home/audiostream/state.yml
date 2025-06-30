@@ -1,0 +1,14 @@
+---
+config_path: bandpass.yml
+mute:
+  - false
+  - false
+  - false
+  - false
+  - false
+volume:
+  - -1.0
+  - -1.0
+  - -1.0
+  - -1.0
+  - -1.0

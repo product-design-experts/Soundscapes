@@ -1,0 +1,32 @@
+[Unit]
+Description=AudioStream Application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+
+# The Wants and After statements above only wait for the device to
+# receive an IP address from the DHCP server.  The code below verifies
+# that the device has Internet access by pinging the well-known address
+# of a highly available, globally accessible Google public DNS server.
+# Try pinging 8.8.8.8 up to 10 times, one second apart.
+# If ping never succeeds, systemd will consider the service to have failed.
+ExecStartPre=/bin/sh -c '\
+  for i in $(seq 1 10); do \
+    ping -c1 -w1 8.8.8.8 && exit 0; \
+    echo "Waiting for Internet… ($i/10)"; \
+    sleep 1; \
+  done; \
+  echo "No Internet after 10 seconds!" >&2; \
+  exit 1'
+
+ExecStart=/home/audiostream/start_camilladsp-whip.sh
+WorkingDirectory=/home/audiostream
+Restart=always
+User=audiostream
+Group=audiostream
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
