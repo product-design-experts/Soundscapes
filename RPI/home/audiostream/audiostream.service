@@ -20,8 +20,8 @@ ExecStartPre=/bin/sh -c '\
   echo "No Internet after 10 seconds!" >&2; \
   exit 1'
 
-ExecStart=/home/audiostream/start_camilladsp-whip.sh
-WorkingDirectory=/home/audiostream
+ExecStart=/home/audiostream/soundscape/start_camilladsp-whip.sh
+WorkingDirectory=/home/audiostream/soundscape
 Restart=always
 User=audiostream
 Group=audiostream
