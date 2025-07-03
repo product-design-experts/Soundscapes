@@ -1,5 +1,5 @@
 ---
-config_path: bandpass.yml
+config_path: /home/audiostream/soundscape/bandpass.yml
 mute:
   - false
   - false

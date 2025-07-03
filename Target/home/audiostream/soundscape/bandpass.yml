@@ -1,47 +1,58 @@
 devices:
   samplerate: 48000
-  chunksize: 2048
+  chunksize: 512
+  enable_rate_adjust: true
   capture:
     type: Alsa
     channels: 2
     device: "hw:2,0"
-    format: S32LE
+    format: S16LE
   playback:
-    type: File
+    type: Alsa # File
     channels: 2
-    format:  S32LE
-    filename: "/tmp/audio_pipe"
+    device: "hw:Loopback,0,0"
+    format:  S16LE
+    # filename: "/tmp/audio_pipe"
 
 filters:
+  input_gain:
+    type: Gain
+    parameters:
+      gain: 0.0  # 20: mic, 10-20: guitar, 0: line input
+
   hp1:
     type: Biquad
     parameters:
       type: Highpass
-      freq: 20.0
+      freq: 300.0
       q: 0.707
 
   hp2:
     type: Biquad
     parameters:
       type: Highpass
-      freq: 20.0
+      freq: 300.0
       q: 0.707
 
   lp1:
     type: Biquad
     parameters:
       type: Lowpass
-      freq: 16000.0
+      freq: 13000.0
       q: 0.707
 
   lp2:
     type: Biquad
     parameters:
       type: Lowpass
-      freq: 16000.0
+      freq: 13000.0
       q: 0.707
 
 pipeline:
+  - type: Filter
+    names: [input_gain]
+    channels: [0, 1]
+
   - type: Filter
     names: [hp1, hp2, lp1, lp2]
     channels: [0, 1]

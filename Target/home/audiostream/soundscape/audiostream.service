@@ -23,6 +23,7 @@ ExecStartPre=/bin/sh -c '\
 ExecStart=/home/audiostream/soundscape/start_camilladsp-whip.sh
 WorkingDirectory=/home/audiostream/soundscape
 Restart=always
+RestartSec=10
 User=audiostream
 Group=audiostream
 StandardOutput=journal
