@@ -10,9 +10,13 @@ CAMILLA_CONFIG="/home/audiostream/soundscape/bandpass.yml"      # Adjust to your
 sudo modprobe snd-aloop
 
 # Used for streaming to Dolby.io using WHIP.  Program will fail if not defined (including video pipe name)
-export DOLBYIO_BEARER_TOKEN="baa23d532516f3000ebababf4f208f858e29cb2418ebc0aaca17b592eea0737a"
-export DOLBYIO_WHIP_ENDPOINT="https://director.millicast.com/api/whip/RPI-Stream-1"
-export DOLBYIO_VIDEO_PIPE=
+export DOLBYIO_BEARER_TOKEN="eyJhbGciOiJLTVMiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjE3Njk2MjA3NTksImlhdCI6MTc2ODQxMTE1OSwianRpIjoiaVFSS1pqMnk5SVc0IiwicmVzb3VyY2UiOiJhcm46YXdzOml2czp1cy1lYXN0LTE6OTYxODA5NjE0NDAwOnN0YWdlL2JMNE0yN3pVbkhHSyIsInRvcGljIjoiYkw0TTI3elVuSEdLIiwiZXZlbnRzX3VybCI6IndzczovL2dsb2JhbC5ldmVudHMubGl2ZS12aWRlby5uZXQiLCJ3aGlwX3VybCI6Imh0dHBzOi8vZmU2NDZmYjViYzZjLmdsb2JhbC1ibS53aGlwLmxpdmUtdmlkZW8ubmV0IiwidXNlcl9pZCI6IlJQSS0xLVRva2VuIiwiY2FwYWJpbGl0aWVzIjp7ImFsbG93X3B1Ymxpc2giOnRydWUsImFsbG93X3N1YnNjcmliZSI6dHJ1ZX0sInZlcnNpb24iOiIwLjAifQ.MGUCMA-weHc6CSdV3XEFAE3Bn1vW8DZHsu32RRLMfkh_w2QskXf9k3mXSAVcTYnz-zjfyAIxAOxw6lmg527uRwCRcdpfcdkWRbeYPbWMqF8FqDFhvRXeRbWUnbtC-J5QUIHcK5yD7A"
+#export DOLBYIO_WHIP_ENDPOINT="https://fe646fb5bc6c.global-bm.whip.live-video.net"
+export DOLBYIO_WHIP_ENDPOINT="https://global.whip.live-video.net"
+export DOLBYIO_VIDEO_PIPE="videotestsrc is-live=true pattern=black ! \
+      videoconvert ! x264enc tune=zerolatency bitrate=1000 ! \
+      rtph264pay ! \
+      application/x-rtp,media=video,encoding-name=H264,payload=97"
 
 export DOLBYIO_AUDIO_PIPE="alsasrc device=hw:Loopback,1,0 do-timestamp=true ! \
   audio/x-raw,format=S16LE,rate=48000,channels=2,layout=interleaved ! \
@@ -22,7 +26,7 @@ export DOLBYIO_AUDIO_PIPE="alsasrc device=hw:Loopback,1,0 do-timestamp=true ! \
   audioconvert ! \
   opusenc ! \
   rtpopuspay ! \
-  application/x-rtp,media=audio,encoding-name=OPUS,payload=111"
+  application/x-rtp,media=audio,encoding-name=OPUS,payload=96"
 
 # --- helpers for logging and connectivity ---
 log() { printf "[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n" -1 "$*"; }
@@ -37,12 +41,12 @@ wait_for_net() {
   done
 }
 
-export GST_DEBUG="*:2"
+export GST_DEBUG="*:4,rtp*:1"
 log "GST_DEBUG: $GST_DEBUG"
 
 # Start CamillaDSP
 log "Starting CamillaDSP..."
-camilladsp /home/audiostream/soundscape/bandpass.yml -s state.yml -v &
+camilladsp /home/audiostream/soundscape/bandpass.yml -s state.yml &
 
 CAMILLA_PID=$!
 log "CamillaDSP PID: $CAMILLA_PID"
@@ -63,7 +67,7 @@ WHIP_COMMAND="$WHIP_CLIENT_BINARY"
 while true; do
   wait_for_net
   log "Starting WHIP client…"
-  eval "$WHIP_COMMAND -l 7" &
+  eval "$WHIP_COMMAND -l 4" &
   WHIP_PID=$!
   log "WHIP client PID: $WHIP_PID"
 
