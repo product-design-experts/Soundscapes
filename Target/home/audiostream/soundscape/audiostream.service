@@ -5,6 +5,10 @@ Wants=network-online.target
 
 [Service]
 
+# Create /run/audiostream at service start (owned by User/Group below).
+RuntimeDirectory=audiostream
+RuntimeDirectoryMode=0755
+
 # The Wants and After statements above only wait for the device to
 # receive an IP address from the DHCP server.  The code below verifies
 # that the device has Internet access by pinging the well-known address
