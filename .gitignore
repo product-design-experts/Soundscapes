@@ -1,1 +1,5 @@
 Target/home/audiostream/soundscape/.venv/
+
+# Don't commit files containing secrets
+Target/home/audiostream/soundscape/.aws/
+Target/home/audiostream/soundscape/sentry.env

@@ -5,6 +5,14 @@ Wants=network-online.target
 
 [Service]
 
+# Optional Sentry configuration (recommended):
+# Create /home/audiostream/soundscape/sentry.env with e.g.
+#   SENTRY_DSN=https://...@o0.ingest.sentry.io/0
+#   SENTRY_ENVIRONMENT=prod
+#   SENTRY_RELEASE=soundscape@2026-01-30
+# The leading '-' makes this file optional.
+EnvironmentFile=-/home/audiostream/soundscape/sentry.env
+
 # Create /run/audiostream at service start (owned by User/Group below).
 RuntimeDirectory=audiostream
 RuntimeDirectoryMode=0755
