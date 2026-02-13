@@ -1,6 +1,12 @@
 devices:
   samplerate: 48000
-  chunksize: 512
+  # 48 kHz recommended starting point is 1024 (≈21 ms) and is typically
+  # much less prone to ALSA xruns than 512 on busy/embedded systems.
+  chunksize: 1024
+  # When enable_rate_adjust is true, target_level controls how much audio
+  # should be left in the playback buffer when the next chunk arrives.
+  # Keeping some headroom reduces underruns.
+  target_level: 768
   enable_rate_adjust: true
   capture:
     type: Alsa

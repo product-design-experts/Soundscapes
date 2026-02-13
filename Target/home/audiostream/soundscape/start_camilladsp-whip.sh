@@ -13,7 +13,10 @@ CAMILLA_CONFIG="/home/audiostream/soundscape/bandpass.yml"      # Adjust to your
 
 # IVS token refresh settings (can be overridden via environment variables)
 IVS_REGION="${IVS_REGION:-us-east-1}"
-IVS_STAGE_ARN="${IVS_STAGE_ARN:-arn:aws:ivs:us-east-1:961809614400:stage/bL4M27zUnHGK}"
+#Personal AWS account stage ARN
+#IVS_STAGE_ARN="${IVS_STAGE_ARN:-arn:aws:ivs:us-east-1:961809614400:stage/bL4M27zUnHGK}"
+#NSS AWS account stage ARN
+IVS_STAGE_ARN="${IVS_STAGE_ARN:-arn:aws:ivs:us-east-1:198116962006:stage/IIHv8pEubxEY}"
 IVS_DURATION_MINUTES="${IVS_DURATION_MINUTES:-20160}"  # Max duration is 20160 (14 days)
 IVS_USER_ID="${IVS_USER_ID:-}"
 
@@ -310,15 +313,18 @@ trap 'cleanup INT' INT
 trap 'cleanup TERM' TERM
 
 # Detect CamillaDSP exiting unexpectedly (e.g., config/device issues).
+# Note: a background subshell cannot `wait` on a PID that is a child of the
+# parent shell (it will error with "pid is not a child"). Instead, poll for
+# liveness.
 (
-  wait "$CAMILLA_PID"
-  rc=$?
+  while kill -0 "$CAMILLA_PID" 2>/dev/null; do
+    sleep 0.5
+  done
   if (( STOPPING == 0 )); then
-    log "CamillaDSP exited unexpectedly (rc=$rc)."
-    sentry_send error "camilladsp exited unexpectedly" \
-      "rc=$rc" || true
+    log "CamillaDSP exited unexpectedly."
+    sentry_send error "camilladsp exited unexpectedly" || true
   else
-    log "CamillaDSP exited during shutdown (rc=$rc)."
+    log "CamillaDSP exited during shutdown."
   fi
 ) &
 
