@@ -1,0 +1,30 @@
+[Unit]
+Description=AudioStream - CamillaDSP
+After=sound.target
+Wants=sound.target
+
+[Service]
+Type=simple
+User=audiostream
+Group=audiostream
+WorkingDirectory=/home/audiostream/soundscape
+
+# Shared runtime directory for token/logs.
+RuntimeDirectory=audiostream
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+
+# Load ALSA loopback before CamillaDSP starts.
+PermissionsStartOnly=true
+ExecStartPre=/usr/sbin/modprobe snd-aloop
+
+ExecStart=/usr/local/bin/camilladsp /home/audiostream/soundscape/bandpass.yml -s /home/audiostream/soundscape/state.yml
+Restart=always
+RestartSec=2
+
+# Keep logs in journald (use journalctl -u audiostream-camilladsp.service).
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

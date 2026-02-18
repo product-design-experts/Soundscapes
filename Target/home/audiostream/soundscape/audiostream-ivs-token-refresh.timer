@@ -1,0 +1,11 @@
+[Unit]
+Description=AudioStream - Periodic IVS token refresh
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=30min
+Unit=audiostream-ivs-token-refresh.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -123,11 +123,40 @@ IVS_TOKEN_FILE="${IVS_TOKEN_FILE:-$TOKEN_DIR/participant_token.json}"
 LOG_DIR="${LOG_DIR:-$TOKEN_DIR/logs}"
 mkdir -p "$LOG_DIR"
 
+# Prevent running multiple supervisor instances at once.
+# This avoids duplicate CamillaDSP/WHIP pipelines fighting over ALSA devices.
+LOCK_FILE="${LOCK_FILE:-$TOKEN_DIR/soundscape-supervisor.lock}"
+PID_FILE="${PID_FILE:-$TOKEN_DIR/soundscape-supervisor.pid}"
+if command -v flock >/dev/null 2>&1; then
+  mkdir -p "$(dirname "$LOCK_FILE")"
+  exec 9>"$LOCK_FILE"
+  if ! flock -n 9; then
+    echo "Another start_camilladsp-whip.sh instance appears to be running (lock held: $LOCK_FILE). Exiting." >&2
+    exit 0
+  fi
+else
+  # Fallback if flock is unavailable.
+  if [[ -f "$PID_FILE" ]]; then
+    existing_pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+    if [[ -n "${existing_pid:-}" ]] && kill -0 "$existing_pid" 2>/dev/null; then
+      echo "Another start_camilladsp-whip.sh instance is running (pid=$existing_pid from $PID_FILE). Exiting." >&2
+      exit 0
+    fi
+  fi
+  mkdir -p "$(dirname "$PID_FILE")"
+  echo "$$" >"$PID_FILE"
+  trap 'rm -f "$PID_FILE"' EXIT
+fi
+
 CAMILLADSP_LOG="$LOG_DIR/camilladsp.log"
 WHIP_LOG="$LOG_DIR/whip-client.log"
 SCRIPT_LOG="$LOG_DIR/start_camilladsp-whip.log"
 
 STOPPING=0
+
+# Useful for correlating "did the Pi reboot?" vs "did SSH drop?".
+BOOT_ID="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || true)"
+BOOT_TIME="$(uptime -s 2>/dev/null || true)"
 
 tail_file() {
   local file="$1"
@@ -191,6 +220,17 @@ PY
 # Enable Alsa Loopback
 sudo modprobe snd-aloop
 
+# Best-effort: reduce scheduler jitter for audio workloads.
+# These steps are intentionally non-fatal; the service should still run
+# even if the system does not permit changing these settings.
+if command -v sudo >/dev/null 2>&1; then
+  # Prefer stable CPU frequency scaling for real-time-ish audio.
+  for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+    [[ -w "$gov" ]] || continue
+    echo performance | sudo tee "$gov" >/dev/null 2>&1 || true
+  done
+fi
+
 # Used for streaming to Dolby.io using WHIP. Program will fail if not defined.
 # This is initialized from AWS IVS via refresh_ivs_token.py at runtime.
 export DOLBYIO_BEARER_TOKEN=""
@@ -231,9 +271,29 @@ log "AWS_SHARED_CREDENTIALS_FILE: $AWS_SHARED_CREDENTIALS_FILE"
 log "LOG_DIR: $LOG_DIR"
 log "CAMILLADSP_LOG: $CAMILLADSP_LOG"
 log "WHIP_LOG: $WHIP_LOG"
+log "BOOT_TIME: ${BOOT_TIME:-unknown}"
+log "BOOT_ID: ${BOOT_ID:-unknown}"
 
-# Mirror script logs to file (and still to journald).
-exec > >(tee -a "$SCRIPT_LOG") 2> >(tee -a "$SCRIPT_LOG" >&2)
+# If the SSH/VS Code connection drops, writing to the PTY can cause SIGPIPE and
+# terminate the script (often surfacing as exit code 141).
+# Default behavior:
+#   - Under systemd (INVOCATION_ID set): mirror to journald + file.
+#   - Under SSH: log to file only (more resilient to disconnects).
+MIRROR_TO_STDOUT="${MIRROR_TO_STDOUT:-}"
+if [[ "${MIRROR_TO_STDOUT}" == "1" ]]; then
+  exec > >(tee -a "$SCRIPT_LOG") 2> >(tee -a "$SCRIPT_LOG" >&2)
+elif [[ "${MIRROR_TO_STDOUT}" == "0" ]]; then
+  exec >>"$SCRIPT_LOG" 2>&1
+elif [[ -n "${INVOCATION_ID:-}" ]]; then
+  exec > >(tee -a "$SCRIPT_LOG") 2> >(tee -a "$SCRIPT_LOG" >&2)
+elif [[ -n "${SSH_CONNECTION:-}" ]]; then
+  exec >>"$SCRIPT_LOG" 2>&1
+else
+  exec > >(tee -a "$SCRIPT_LOG") 2> >(tee -a "$SCRIPT_LOG" >&2)
+fi
+
+# Keep the supervisor alive if the controlling terminal disappears.
+trap '' HUP
 
 # Major lifecycle event: supervisor start.
 sentry_send info "soundscape supervisor started" \
@@ -288,12 +348,29 @@ fi
 
 # Start CamillaDSP
 log "Starting CamillaDSP..."
-camilladsp "$CAMILLA_CONFIG" -s state.yml \
-  > >(tee -a "$CAMILLADSP_LOG") \
-  2> >(tee -a "$CAMILLADSP_LOG" >&2) &
+
+# If available and permitted, start CamillaDSP with FIFO scheduling.
+# IMPORTANT: under `set -e`, a failing `chrt` must never abort the script.
+if command -v chrt >/dev/null 2>&1 && chrt -f 70 true >/dev/null 2>&1; then
+  chrt -f 70 camilladsp "$CAMILLA_CONFIG" -s state.yml \
+    > >(tee -a "$CAMILLADSP_LOG") \
+    2> >(tee -a "$CAMILLADSP_LOG" >&2) &
+else
+  if command -v chrt >/dev/null 2>&1; then
+    log "Note: chrt is present but not permitted; starting CamillaDSP without FIFO scheduling."
+  fi
+  camilladsp "$CAMILLA_CONFIG" -s state.yml \
+    > >(tee -a "$CAMILLADSP_LOG") \
+    2> >(tee -a "$CAMILLADSP_LOG" >&2) &
+fi
 
 CAMILLA_PID=$!
 log "CamillaDSP PID: $CAMILLA_PID"
+
+# Best-effort: prefer CamillaDSP over non-audio processes.
+if command -v sudo >/dev/null 2>&1 && command -v renice >/dev/null 2>&1; then
+  sudo renice -n -10 -p "$CAMILLA_PID" >/dev/null 2>&1 || true
+fi
 
 # Ensure we clean up on stop
 cleanup() {

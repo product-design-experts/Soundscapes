@@ -1,12 +1,21 @@
 devices:
   samplerate: 48000
-  # 48 kHz recommended starting point is 1024 (≈21 ms) and is typically
-  # much less prone to ALSA xruns than 512 on busy/embedded systems.
-  chunksize: 1024
+  # For streaming stability, err on the side of larger chunks/buffers.
+  # 2048 @ 48 kHz is ~43 ms per chunk and is typically much more robust.
+  chunksize: 2048
+
   # When enable_rate_adjust is true, target_level controls how much audio
   # should be left in the playback buffer when the next chunk arrives.
-  # Keeping some headroom reduces underruns.
-  target_level: 768
+  target_level: 1536
+
+  # React faster to drift (seconds between corrections).
+  adjust_period: 3
+
+  # Needed for continuous rate-matching when capture/playback clocks are
+  # independent (common with real ADC capture + ALSA Loopback playback).
+  resampler:
+    type: AsyncSinc
+    profile: Balanced
   enable_rate_adjust: true
   capture:
     type: Alsa

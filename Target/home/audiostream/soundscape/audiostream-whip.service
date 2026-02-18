@@ -1,0 +1,54 @@
+[Unit]
+Description=AudioStream - WHIP client
+After=network-online.target audiostream-camilladsp.service
+Wants=network-online.target
+Requires=audiostream-camilladsp.service
+
+[Service]
+Type=simple
+User=audiostream
+Group=audiostream
+WorkingDirectory=/home/audiostream/soundscape
+
+Environment=HOME=/home/audiostream
+
+RuntimeDirectory=audiostream
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+
+# Defaults (override by creating /home/audiostream/soundscape/audiostream.env)
+Environment=IVS_REGION=us-east-1
+Environment=IVS_STAGE_ARN=arn:aws:ivs:us-east-1:198116962006:stage/IIHv8pEubxEY
+Environment=IVS_DURATION_MINUTES=20160
+Environment=IVS_TOKEN_FILE=/run/audiostream/participant_token.json
+
+Environment=AWS_CONFIG_FILE=/home/audiostream/soundscape/.aws/config
+Environment=AWS_SHARED_CREDENTIALS_FILE=/home/audiostream/soundscape/.aws/credentials
+EnvironmentFile=-/home/audiostream/soundscape/audiostream.env
+
+# Verify we actually have Internet before starting a WHIP session.
+ExecStartPre=/bin/sh -c '\
+  for i in $(seq 1 10); do \
+    ping -c1 -w1 8.8.8.8 && exit 0; \
+    echo "Waiting for Internet… ($i/10)"; \
+    sleep 1; \
+  done; \
+  echo "No Internet after 10 seconds!" >&2; \
+  exit 1'
+
+# Ensure token exists and is fresh on every start.
+ExecStartPre=/home/audiostream/soundscape/.venv/bin/python /home/audiostream/soundscape/refresh_ivs_token.py \
+  --stage-arn $IVS_STAGE_ARN \
+  --token-file $IVS_TOKEN_FILE \
+  --duration-minutes $IVS_DURATION_MINUTES \
+  --region $IVS_REGION
+
+ExecStart=/usr/bin/env python3 /home/audiostream/soundscape/whip_client_runner.py
+Restart=always
+RestartSec=2
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

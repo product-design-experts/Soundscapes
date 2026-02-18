@@ -1,0 +1,38 @@
+[Unit]
+Description=AudioStream - Refresh IVS participant token
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=audiostream
+Group=audiostream
+WorkingDirectory=/home/audiostream/soundscape
+
+# Ensure SDKs relying on HOME behave consistently.
+Environment=HOME=/home/audiostream
+
+RuntimeDirectory=audiostream
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+
+# Defaults (override by creating /home/audiostream/soundscape/audiostream.env)
+Environment=IVS_REGION=us-east-1
+Environment=IVS_STAGE_ARN=arn:aws:ivs:us-east-1:198116962006:stage/IIHv8pEubxEY
+Environment=IVS_DURATION_MINUTES=20160
+Environment=IVS_TOKEN_FILE=/run/audiostream/participant_token.json
+
+# Match the manual launcher behavior: use repo-local AWS config/credentials.
+Environment=AWS_CONFIG_FILE=/home/audiostream/soundscape/.aws/config
+Environment=AWS_SHARED_CREDENTIALS_FILE=/home/audiostream/soundscape/.aws/credentials
+EnvironmentFile=-/home/audiostream/soundscape/audiostream.env
+
+# Use the repo venv if present (recommended because it includes boto3).
+ExecStart=/home/audiostream/soundscape/.venv/bin/python /home/audiostream/soundscape/refresh_ivs_token.py \
+  --stage-arn $IVS_STAGE_ARN \
+  --token-file $IVS_TOKEN_FILE \
+  --duration-minutes $IVS_DURATION_MINUTES \
+  --region $IVS_REGION
+
+[Install]
+WantedBy=multi-user.target
