@@ -15,8 +15,10 @@ CAMILLA_CONFIG="/home/audiostream/soundscape/bandpass.yml"      # Adjust to your
 IVS_REGION="${IVS_REGION:-us-east-1}"
 #Personal AWS account stage ARN
 #IVS_STAGE_ARN="${IVS_STAGE_ARN:-arn:aws:ivs:us-east-1:961809614400:stage/bL4M27zUnHGK}"
-#NSS AWS account stage ARN
-IVS_STAGE_ARN="${IVS_STAGE_ARN:-arn:aws:ivs:us-east-1:198116962006:stage/IIHv8pEubxEY}"
+#NSS AWS account Demo stage ARN
+#IVS_STAGE_ARN="${IVS_STAGE_ARN:-arn:aws:ivs:us-east-1:198116962006:stage/IIHv8pEubxEY}"
+#NSS AWS account Development stage ARN
+IVS_STAGE_ARN="${IVS_STAGE_ARN:-arn:aws:ivs:us-east-1:198116962006:stage/aOulG9nk2ton}"
 IVS_DURATION_MINUTES="${IVS_DURATION_MINUTES:-20160}"  # Max duration is 20160 (14 days)
 IVS_USER_ID="${IVS_USER_ID:-}"
 
